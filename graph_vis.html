@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Static Maze</title>
+    <style>
+        .cell {
+            border: 2px solid black;
+            background-color: white;
+            color: black;
+            width: 40px;
+            height: 40px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .wall {
+            background-color: black;
+            color: white;
+        }
+        table {
+            border-collapse: collapse;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">Maze</h1>
+    <table id="mazeTable"></table>
+
+    <script>
+        const rows = 10;
+        const cols = 10;
+        const wallChance = 0.3;
+        const seed = 12345;
+
+        startCol = -1;
+        startRow = -1;
+        endCol = -1;
+        endRow = -1;
+
+        const table = document.getElementById("mazeTable");
+
+        function handleClick() {
+            this.style.backgroundColor = "lime";
+        }
+
+        function handleDoubleClick() {
+            this.style.backgroundColor = "white";
+        }
+
+        function seededRandom(seed) {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        function getStartEndPoints() {
+            const tableRows = table.getElementsByTagName("tr");
+
+            let startX, startY, endX, endY;
+
+            while (true) {
+                const coordinates = prompt(`Enter x and y coordinates for the start point (1-${rows}):`);
+                [startX, startY] = coordinates.split(',').map(Number);
+
+                startX -= 1;
+                startY -= 1;
+
+                if (
+                    startX >= 0 && startX < rows &&
+                    startY >= 0 && startY < cols &&
+                    !tableRows[startX].children[startY].classList.contains("wall")
+                ) {
+                	startRow = startX;
+                    startCol = startY;
+                    break;
+                }
+                alert("Invalid start point! Ensure it's within bounds (1-10) and not a wall.");
+            }
+
+            while (true) {
+                const coordinates = prompt(`Enter x and y coordinates for the end point (1-${rows}):`);
+                [endX, endY] = coordinates.split(',').map(Number);
+
+                endX -= 1;
+                endY -= 1;
+
+                if (
+                    endX >= 0 && endX < rows &&
+                    endY >= 0 && endY < cols &&
+                    !tableRows[endX].children[endY].classList.contains("wall") &&
+                    !(startX === endX && startY === endY)
+                ) {
+                	endRow = endX;
+                    endCol = endY;
+                    break;
+                }
+                alert("Invalid end point! Ensure it's within bounds (1-10), not a wall, and different from the start point.");
+            }
+
+            const startCell = tableRows[startX].children[startY];
+            startCell.style.backgroundColor = "blue";
+            startCell.innerText = "S";
+            startCell.classList.add("start");
+
+            const endCell = tableRows[endX].children[endY];
+            endCell.style.backgroundColor = "red";
+            endCell.innerText = "E";
+            startCell.classList.add("end");
+        }
+
+        function generateMaze(seed) {
+            let randomSeed = seed;
+            for (let i = 0; i < rows; i++) {
+                const row = document.createElement("tr");
+                for (let j = 0; j < cols; j++) {
+                    const cell = document.createElement("td");
+                    cell.className = "cell";
+
+                    const rand = seededRandom(randomSeed);
+                    randomSeed++;
+
+                    if (rand < wallChance) {
+                        cell.classList.add("wall");
+                        cell.style.backgroundColor = "black";
+                        cell.style.color = "white";
+                    } else {
+                    	if (!cell.classList.contains("start") && cell.classList.contains("end")) {
+                    		cell.onclick = handleClick;
+                            cell.ondblclick = handleDoubleClick;
+                    	} 
+                    }
+
+                    row.appendChild(cell);
+                }
+                table.appendChild(row);
+            }
+        }
+
+        function get_optimal_way() {
+            const tableRows = table.getElementsByTagName("tr");
+            const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+            const parents = Array.from({ length: rows }, () => Array(cols).fill(null));
+
+            const directions = [
+                [-1, 0],
+                [1, 0],
+                [0, -1],
+                [0, 1],
+            ];
+
+            const queue = [];
+            queue.push([startRow, startCol]);
+            visited[startRow][startCol] = true;
+
+            while (queue.length > 0) {
+                const [currRow, currCol] = queue.shift();
+
+                if (currRow === endRow && currCol === endCol) {
+                    get_path(parents, currRow, currCol);
+                    return;
+                }
+
+                for (const [dx, dy] of directions) {
+                    const newRow = currRow + dx;
+                    const newCol = currCol + dy;
+
+                    if (
+                        newRow >= 0 && newRow < rows &&
+                        newCol >= 0 && newCol < cols &&
+                        !visited[newRow][newCol] &&
+                        !tableRows[newRow].children[newCol].classList.contains("wall")
+                    ) {
+                        queue.push([newRow, newCol]);
+                        visited[newRow][newCol] = true;
+                        parents[newRow][newCol] = [currRow, currCol];
+                    }
+                }
+            }
+
+            alert("No path found!");
+        }
+
+
+        function get_path(parents, row, col) {
+            const tableRows = table.getElementsByTagName("tr");
+            let path = [];
+
+            while (row !== startRow || col !== startCol) {
+                path.push([row, col]);
+                [row, col] = parents[row][col];
+            }
+            path.push([startRow, startCol]);
+            path.reverse();
+
+            for (const [r, c] of path) {
+                if (r === startRow && c === startCol) continue;
+                if (r === endRow && c === endCol) continue;
+
+                const cell = tableRows[r].children[c];
+                cell.style.backgroundColor = "lime";
+            }
+
+            console.log("Path found:", path);
+        }
+
+        generateMaze(seed);
+
+        setTimeout(getStartEndPoints, 100);
+
+        setTimeout(get_optimal_way, 300);
+
+
+    </script>
+</body>
+</html>
