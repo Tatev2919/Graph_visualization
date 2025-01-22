@@ -8,8 +8,8 @@
             border: 2px solid black;
             background-color: white;
             color: black;
-            width: 40px;
-            height: 40px;
+            width: 20px;
+            height: 20px;
             text-align: center;
             vertical-align: middle;
         }
@@ -28,84 +28,19 @@
     <table id="mazeTable"></table>
 
     <script>
-        const rows = 10;
-        const cols = 10;
+        const rows = 30;
+        const cols = 30;
         const wallChance = 0.3;
         const seed = 12345;
 
-        startCol = -1;
-        startRow = -1;
-        endCol = -1;
-        endRow = -1;
+        let startCol = -1, startRow = -1, endCol = -1, endRow = -1;
+        let selectingStart = true;
 
         const table = document.getElementById("mazeTable");
-
-        function handleClick() {
-            this.style.backgroundColor = "lime";
-        }
-
-        function handleDoubleClick() {
-            this.style.backgroundColor = "white";
-        }
 
         function seededRandom(seed) {
             let x = Math.sin(seed++) * 10000;
             return x - Math.floor(x);
-        }
-
-        function getStartEndPoints() {
-            const tableRows = table.getElementsByTagName("tr");
-
-            let startX, startY, endX, endY;
-
-            while (true) {
-                const coordinates = prompt(`Enter x and y coordinates for the start point (1-${rows}):`);
-                [startX, startY] = coordinates.split(',').map(Number);
-
-                startX -= 1;
-                startY -= 1;
-
-                if (
-                    startX >= 0 && startX < rows &&
-                    startY >= 0 && startY < cols &&
-                    !tableRows[startX].children[startY].classList.contains("wall")
-                ) {
-                	startRow = startX;
-                    startCol = startY;
-                    break;
-                }
-                alert("Invalid start point! Ensure it's within bounds (1-10) and not a wall.");
-            }
-
-            while (true) {
-                const coordinates = prompt(`Enter x and y coordinates for the end point (1-${rows}):`);
-                [endX, endY] = coordinates.split(',').map(Number);
-
-                endX -= 1;
-                endY -= 1;
-
-                if (
-                    endX >= 0 && endX < rows &&
-                    endY >= 0 && endY < cols &&
-                    !tableRows[endX].children[endY].classList.contains("wall") &&
-                    !(startX === endX && startY === endY)
-                ) {
-                	endRow = endX;
-                    endCol = endY;
-                    break;
-                }
-                alert("Invalid end point! Ensure it's within bounds (1-10), not a wall, and different from the start point.");
-            }
-
-            const startCell = tableRows[startX].children[startY];
-            startCell.style.backgroundColor = "blue";
-            startCell.innerText = "S";
-            startCell.classList.add("start");
-
-            const endCell = tableRows[endX].children[endY];
-            endCell.style.backgroundColor = "red";
-            endCell.innerText = "E";
-            startCell.classList.add("end");
         }
 
         function generateMaze(seed) {
@@ -122,17 +57,48 @@
                     if (rand < wallChance) {
                         cell.classList.add("wall");
                         cell.style.backgroundColor = "black";
-                        cell.style.color = "white";
                     } else {
-                    	if (!cell.classList.contains("start") && cell.classList.contains("end")) {
-                    		cell.onclick = handleClick;
-                            cell.ondblclick = handleDoubleClick;
-                    	} 
+                        cell.onclick = () => handleCellClick(i, j, cell);
                     }
 
                     row.appendChild(cell);
                 }
                 table.appendChild(row);
+            }
+        }
+
+        function handleCellClick(row, col, cell) {
+            if (cell.classList.contains("wall")) return;
+
+            const tableRows = table.getElementsByTagName("tr");
+
+            if (selectingStart) {
+
+                if (startRow !== -1 && startCol !== -1) {
+                    tableRows[startRow].children[startCol].style.backgroundColor = "white";
+                    tableRows[startRow].children[startCol].innerText = "";
+                }
+
+                startRow = row;
+                startCol = col;
+                cell.style.backgroundColor = "blue";
+                cell.innerText = "S";
+                selectingStart = false;
+                alert("Start point set! Now select the end point.");
+            } else {
+                // Set End Point
+                if (endRow !== -1 && endCol !== -1) {
+                    tableRows[endRow].children[endCol].style.backgroundColor = "white";
+                    tableRows[endRow].children[endCol].innerText = "";
+                }
+
+                endRow = row;
+                endCol = col;
+                cell.style.backgroundColor = "red";
+                cell.innerText = "E";
+
+                alert("End point set! Starting the search...");
+                setTimeout(get_optimal_way, 300);
             }
         }
 
@@ -152,38 +118,58 @@
             queue.push([startRow, startCol]);
             visited[startRow][startCol] = true;
 
-            while (queue.length > 0) {
-                const [currRow, currCol] = queue.shift();
-
-                if (currRow === endRow && currCol === endCol) {
-                    get_path(parents, currRow, currCol);
+            function bfsStep() {
+                if (queue.length === 0) {
+                    alert("No path found!");
                     return;
                 }
 
-                for (const [dx, dy] of directions) {
-                    const newRow = currRow + dx;
-                    const newCol = currCol + dy;
+                const nextQueue = [];
 
-                    if (
-                        newRow >= 0 && newRow < rows &&
-                        newCol >= 0 && newCol < cols &&
-                        !visited[newRow][newCol] &&
-                        !tableRows[newRow].children[newCol].classList.contains("wall")
-                    ) {
-                        queue.push([newRow, newCol]);
-                        visited[newRow][newCol] = true;
-                        parents[newRow][newCol] = [currRow, currCol];
+                while (queue.length > 0) {
+                    const [currRow, currCol] = queue.shift();
+                    const cell = tableRows[currRow].children[currCol];
+                    cell.style.backgroundColor = "#A7C7E7"; // Pastel blue
+
+                    if (currRow === endRow && currCol === endCol) {
+                        get_path(parents, currRow, currCol);
+                        return;
+                    }
+
+                    for (const [dx, dy] of directions) {
+                        const newRow = currRow + dx;
+                        const newCol = currCol + dy;
+
+                        if (
+                            newRow >= 0 && newRow < rows &&
+                            newCol >= 0 && newCol < cols &&
+                            !visited[newRow][newCol] &&
+                            !tableRows[newRow].children[newCol].classList.contains("wall")
+                        ) {
+                            nextQueue.push([newRow, newCol]);
+                            visited[newRow][newCol] = true;
+                            parents[newRow][newCol] = [currRow, currCol];
+                        }
                     }
                 }
+
+                nextQueue.forEach(([r, c]) => {
+                    const cell = tableRows[r].children[c];
+                    if (cell.style.backgroundColor !== "#A7C7E7") {
+                        cell.style.backgroundColor = "#FAD6A5";
+                    }
+                });
+
+                queue.push(...nextQueue);
+                setTimeout(bfsStep, 400);
             }
 
-            alert("No path found!");
+            bfsStep();
         }
-
 
         function get_path(parents, row, col) {
             const tableRows = table.getElementsByTagName("tr");
-            let path = [];
+            const path = [];
 
             while (row !== startRow || col !== startCol) {
                 path.push([row, col]);
@@ -197,19 +183,13 @@
                 if (r === endRow && c === endCol) continue;
 
                 const cell = tableRows[r].children[c];
-                cell.style.backgroundColor = "lime";
+                cell.style.backgroundColor = "#B4E4C9"; // Mint green
             }
 
             console.log("Path found:", path);
         }
 
         generateMaze(seed);
-
-        setTimeout(getStartEndPoints, 100);
-
-        setTimeout(get_optimal_way, 300);
-
-
     </script>
 </body>
 </html>
