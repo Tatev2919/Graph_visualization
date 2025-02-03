@@ -24,10 +24,13 @@
     </style>
 </head>
 <body>
-    <h1 style="text-align: center;">Get optimal way using BFS algorithm</h1>
+    <h1 style="text-align: center;">Get optimal way using Greedy BFS algorithm</h1>
     <table id="mazeTable"></table>
 
-    <script>
+    <script type="module">
+    import FastPriorityQueue from "https://cdn.jsdelivr.net/npm/fastpriorityqueue@latest/+esm";
+
+
         const rows = 30;
         const cols = 30;
         const wallChance = 0.3;
@@ -42,30 +45,6 @@
             let x = Math.sin(seed++) * 10000;
             return x - Math.floor(x);
         }
-
-        /*function generateMaze(seed) {
-            let randomSeed = seed;
-            for (let i = 0; i < rows; i++) {
-                const row = document.createElement("tr");
-                for (let j = 0; j < cols; j++) {
-                    const cell = document.createElement("td");
-                    cell.className = "cell";
-
-                    const rand = seededRandom(randomSeed);
-                    randomSeed++;
-
-                    if (rand < wallChance) {
-                        cell.classList.add("wall");
-                        cell.style.backgroundColor = "black";
-                    } else {
-                        cell.onclick = () => handleCellClick(i, j, cell);
-                    }
-
-                    row.appendChild(cell);
-                }
-                table.appendChild(row);
-            }
-        }*/
 
         function shuffleArray(array, seed) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -196,8 +175,10 @@
                 cell.classList.add("end");
                 alert("End point set! Starting the search...");
                 setTimeout(get_optimal_way, 300);
+                selectingStart = false;
             }
         }
+
 
         function get_optimal_way() {
             const tableRows = table.getElementsByTagName("tr");
@@ -211,23 +192,30 @@
                 [0, 1],
             ];
 
-            const queue = [];
-            queue.push([startRow, startCol]);
+            const distance = (x0, y0, x1, y1) => Math.abs(x1 - x0) + Math.abs(y1 - y0);
+
+
+            const queue = new FastPriorityQueue((a, b) => {
+                const d1 = distance(a[0], a[1], endRow, endCol);
+                const d2 = distance(b[0], b[1], endRow, endCol);
+                console.log("distance: ", d1, " ", d2 );
+                return d1 < d2;
+            });
+
+            queue.add([startRow, startCol]);
             visited[startRow][startCol] = true;
 
-            function bfsStep() {
-                if (queue.length === 0) {
-                    alert("No path found!");
-                    return;
-                }
+            if (queue.isEmpty()) {
+                alert("No path found!");
+                return;
+            }
 
-                const nextQueue = [];
+            function greedy_step () {
+                    const [currRow, currCol] = queue.poll();
+                    const cell = table.rows[currRow].children[currCol];
 
-                while (queue.length > 0) {
-                    const [currRow, currCol] = queue.shift();
-                    const cell = tableRows[currRow].children[currCol];
                     if (!cell.classList.contains("start") && !cell.classList.contains("end")) {
-                       cell.style.backgroundColor = "#A7C7E7"; // Pastel blue
+                        cell.style.backgroundColor = "#A7C7E7"; // Pastel blue
                     }
 
                     if (currRow === endRow && currCol === endCol) {
@@ -243,29 +231,20 @@
                             newRow >= 0 && newRow < rows &&
                             newCol >= 0 && newCol < cols &&
                             !visited[newRow][newCol] &&
-                            !tableRows[newRow].children[newCol].classList.contains("wall")
+                            !table.rows[newRow].children[newCol].classList.contains("wall")
                         ) {
-                            nextQueue.push([newRow, newCol]);
+                            queue.add([newRow, newCol]);
                             visited[newRow][newCol] = true;
                             parents[newRow][newCol] = [currRow, currCol];
                         }
                     }
-                }
-
-                nextQueue.forEach(([r, c]) => {
-                    const cell = tableRows[r].children[c];
-                    if (cell.style.backgroundColor !== "#A7C7E7") {
-                        if (!cell.classList.contains("start") && !cell.classList.contains("end")) {
-                            cell.style.backgroundColor = "#FAD6A5";
-                        }
-                    }
-                });
-
-                queue.push(...nextQueue);
-                setTimeout(bfsStep, 400);
+                setTimeout(greedy_step, 100);
             }
 
-            bfsStep();
+            
+            greedy_step();
+            
+         
             selectingStart = true;
         }
 

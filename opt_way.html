@@ -24,10 +24,13 @@
     </style>
 </head>
 <body>
-    <h1 style="text-align: center;">Get optimal way using BFS algorithm</h1>
+    <h1 style="text-align: center;">Get some way using pure Greedy algorithm</h1>
     <table id="mazeTable"></table>
 
-    <script>
+    <script type="module">
+    import FastPriorityQueue from "https://cdn.jsdelivr.net/npm/fastpriorityqueue@latest/+esm";
+
+
         const rows = 30;
         const cols = 30;
         const wallChance = 0.3;
@@ -42,30 +45,6 @@
             let x = Math.sin(seed++) * 10000;
             return x - Math.floor(x);
         }
-
-        /*function generateMaze(seed) {
-            let randomSeed = seed;
-            for (let i = 0; i < rows; i++) {
-                const row = document.createElement("tr");
-                for (let j = 0; j < cols; j++) {
-                    const cell = document.createElement("td");
-                    cell.className = "cell";
-
-                    const rand = seededRandom(randomSeed);
-                    randomSeed++;
-
-                    if (rand < wallChance) {
-                        cell.classList.add("wall");
-                        cell.style.backgroundColor = "black";
-                    } else {
-                        cell.onclick = () => handleCellClick(i, j, cell);
-                    }
-
-                    row.appendChild(cell);
-                }
-                table.appendChild(row);
-            }
-        }*/
 
         function shuffleArray(array, seed) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -195,101 +174,109 @@
                 cell.innerText = "E";
                 cell.classList.add("end");
                 alert("End point set! Starting the search...");
-                setTimeout(get_optimal_way, 300);
+                setTimeout(get_some_way, 300);
+                selectingStart = false;
             }
         }
 
-        function get_optimal_way() {
+
+        function get_some_way() {
             const tableRows = table.getElementsByTagName("tr");
-            const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
-            const parents = Array.from({ length: rows }, () => Array(cols).fill(null));
 
             const directions = [
-                [-1, 0],
-                [1, 0],
-                [0, -1],
-                [0, 1],
+                [-1, 0], // Up
+                [1, 0],  // Down
+                [0, -1], // Left
+                [0, 1],  // Right
             ];
 
-            const queue = [];
-            queue.push([startRow, startCol]);
-            visited[startRow][startCol] = true;
+            const distance = (x0, y0, x1, y1) => Math.abs(x1 - x0) + Math.abs(y1 - y0);
 
-            function bfsStep() {
-                if (queue.length === 0) {
+            let currRow = startRow;
+            let currCol = startCol;
+
+            const visited = new Set();
+            const pathStack = [[currRow, currCol]];
+
+            function greedy_step() {
+                if (currRow === endRow && currCol === endCol) {
+                    alert("Goal reached!");
+                    mark_final_path();
+                    return;
+                }
+
+                visited.add(`${currRow},${currCol}`); // Mark as visited
+
+                let nextRow = -1;
+                let nextCol = -1;
+                let minDistance = Infinity;
+
+                for (const [dx, dy] of directions) {
+                    const newRow = currRow + dx;
+                    const newCol = currCol + dy;
+
+                    if (
+                        newRow >= 0 && newRow < rows &&
+                        newCol >= 0 && newCol < cols &&
+                        !tableRows[newRow].children[newCol].classList.contains("wall") &&
+                        !visited.has(`${newRow},${newCol}`)
+                    ) {
+                        const dist = distance(newRow, newCol, endRow, endCol);
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            nextRow = newRow;
+                            nextCol = newCol;
+                        }
+                    }
+                }
+
+                if (nextRow === -1 || nextCol === -1) {
+                    while (pathStack.length > 1) {
+                        pathStack.pop();
+                        const [prevRow, prevCol] = pathStack[pathStack.length - 1];
+
+                        for (const [dx, dy] of directions) {
+                            const checkRow = prevRow + dx;
+                            const checkCol = prevCol + dy;
+                            if (
+                                checkRow >= 0 && checkRow < rows &&
+                                checkCol >= 0 && checkCol < cols &&
+                                !tableRows[checkRow].children[checkCol].classList.contains("wall") &&
+                                !visited.has(`${checkRow},${checkCol}`)
+                            ) {
+                                currRow = prevRow;
+                                currCol = prevCol;
+                                setTimeout(greedy_step, 100);
+                                return;
+                            }
+                        }
+                    }
                     alert("No path found!");
                     return;
                 }
 
-                const nextQueue = [];
+                currRow = nextRow;
+                currCol = nextCol;
+                pathStack.push([currRow, currCol]);
 
-                while (queue.length > 0) {
-                    const [currRow, currCol] = queue.shift();
-                    const cell = tableRows[currRow].children[currCol];
-                    if (!cell.classList.contains("start") && !cell.classList.contains("end")) {
-                       cell.style.backgroundColor = "#A7C7E7"; // Pastel blue
-                    }
-
-                    if (currRow === endRow && currCol === endCol) {
-                        get_path(parents, currRow, currCol);
-                        return;
-                    }
-
-                    for (const [dx, dy] of directions) {
-                        const newRow = currRow + dx;
-                        const newCol = currCol + dy;
-
-                        if (
-                            newRow >= 0 && newRow < rows &&
-                            newCol >= 0 && newCol < cols &&
-                            !visited[newRow][newCol] &&
-                            !tableRows[newRow].children[newCol].classList.contains("wall")
-                        ) {
-                            nextQueue.push([newRow, newCol]);
-                            visited[newRow][newCol] = true;
-                            parents[newRow][newCol] = [currRow, currCol];
-                        }
-                    }
+                if (currRow !== startRow && currCol !== endRow) {
+                    tableRows[currRow].children[currCol].style.backgroundColor = "#A7C7E7";
                 }
 
-                nextQueue.forEach(([r, c]) => {
-                    const cell = tableRows[r].children[c];
-                    if (cell.style.backgroundColor !== "#A7C7E7") {
-                        if (!cell.classList.contains("start") && !cell.classList.contains("end")) {
-                            cell.style.backgroundColor = "#FAD6A5";
-                        }
-                    }
-                });
-
-                queue.push(...nextQueue);
-                setTimeout(bfsStep, 400);
+                setTimeout(greedy_step, 100);
             }
 
-            bfsStep();
+            function mark_final_path() {
+                for (const [r, c] of pathStack) {
+                    if ((r === startRow && c === startCol) || (r === endRow && c === endCol)) continue;
+                    tableRows[r].children[c].style.backgroundColor = "#FF6961"; // Pastel red for final path
+                }
+            }
+
+            greedy_step();
             selectingStart = true;
         }
 
-        function get_path(parents, row, col) {
-            const tableRows = table.getElementsByTagName("tr");
-            const path = [];
-
-            while (row !== startRow || col !== startCol) {
-                path.push([row, col]);
-                [row, col] = parents[row][col];
-            }
-            path.push([startRow, startCol]);
-            path.reverse();
-
-            for (const [r, c] of path) {
-                if (r === startRow && c === startCol) continue;
-                if (r === endRow && c === endCol) continue;
-
-                const cell = tableRows[r].children[c];
-                cell.style.backgroundColor = "#FF6961"; // Pastal red
-            }
-
-            console.log("Path found:", path);
-        }
 
         generateMaze(seed);
         setTimeout(helper_f_maze, 300);
